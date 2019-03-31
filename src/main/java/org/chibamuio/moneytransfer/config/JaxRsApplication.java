@@ -36,6 +36,7 @@ public class JaxRsApplication extends ResourceConfig {
                 bind(InSufficientFundsExceptionMapper.class);
                 bind(GenericExceptionMapper.class);
                 bind(InputValidationExceptionMapper.class);
+
             }
         });
     }

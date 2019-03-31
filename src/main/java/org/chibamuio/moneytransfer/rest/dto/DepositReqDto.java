@@ -11,9 +11,16 @@ public final class DepositReqDto {
     private Long accountNumber;
     @NotBlank
     private String currency;
-    @Min(value = 10)
+    @Min(value = 10) //minimum amount to deposit should be at list 10 units of the currency
     private BigDecimal amount;
 
+    private DepositReqDto(){}
+
+    public DepositReqDto(@NotNull Long accountNumber, @NotBlank String currency, @Min(value = 10) BigDecimal amount) {
+        this.accountNumber = accountNumber;
+        this.currency = currency;
+        this.amount = amount;
+    }
 
     public Long getAccountNumber() {
         return accountNumber;

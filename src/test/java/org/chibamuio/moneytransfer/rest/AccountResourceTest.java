@@ -7,6 +7,7 @@ import org.chibamuio.moneytransfer.exceptions.BusinessException;
 import org.chibamuio.moneytransfer.exceptions.CustomerNotFoundException;
 import org.chibamuio.moneytransfer.rest.dto.AccountInfoDto;
 import org.chibamuio.moneytransfer.rest.dto.CustomerDto;
+import org.chibamuio.moneytransfer.rest.dto.DepositReqDto;
 import org.chibamuio.moneytransfer.services.AccountService;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -65,10 +66,10 @@ public class AccountResourceTest extends JerseyTest {
     public void testSuccessfulOpenAccount() throws BusinessException {
         CustomerDto customerDto = CustomerDto.newCustomerDto(9008016295194L, "DOMINIC", "CHIBAMU", "USD", BigDecimal.valueOf(200000));
         when(accountServiceMock.create(any(CustomerDto.class))).thenReturn(createMockAccount());
-        Entity<CustomerDto> userEntity = Entity.entity(customerDto, MediaType.APPLICATION_JSON);
+        Entity<CustomerDto> customerDtoEntity = Entity.entity(customerDto, MediaType.APPLICATION_JSON);
         Response response = target("/money-transfer")
                 .request(MediaType.APPLICATION_JSON)
-                .post(userEntity);
+                .post(customerDtoEntity);
         assertEquals(Response.Status.CREATED.getStatusCode(),  response.getStatus());
     }
 
@@ -76,10 +77,10 @@ public class AccountResourceTest extends JerseyTest {
     public void testFailedOpenAccount() throws BusinessException {
         CustomerDto customerDto = CustomerDto.newCustomerDto(9008016295194L, "DOMINIC", "CHIBAMU", "USD", BigDecimal.valueOf(200000));
         when(accountServiceMock.create(any(CustomerDto.class))).thenReturn(Optional.empty());
-        Entity<CustomerDto> userEntity = Entity.entity(customerDto, MediaType.APPLICATION_JSON);
+        Entity<CustomerDto> customerDtoEntity = Entity.entity(customerDto, MediaType.APPLICATION_JSON);
         Response response = target("/money-transfer")
                 .request(MediaType.APPLICATION_JSON)
-                .post(userEntity);
+                .post(customerDtoEntity);
         assertEquals(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(),  response.getStatus());
     }
 
@@ -103,8 +104,13 @@ public class AccountResourceTest extends JerseyTest {
     }
 
     @Test
-    public void testDepositEndpoint() {
-
+    public void testSuccessfulDeposit() {
+        DepositReqDto depositReqDto = new DepositReqDto(1554060992324L, "USD", BigDecimal.valueOf(1200));
+        Entity<DepositReqDto> depositReqDtoEntity = Entity.entity(depositReqDto, MediaType.APPLICATION_JSON);
+        Response response = target("/deposit")
+                .request(MediaType.APPLICATION_JSON)
+                .put(depositReqDtoEntity);
+        assertThat(response.getStatusInfo().getFamily(), is(Response.Status.Family.SUCCESSFUL));
     }
 
 
