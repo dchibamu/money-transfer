@@ -1,6 +1,6 @@
 package org.chibamuio.moneytransfer.exceptions;
 
-public class AccountNumberNotFoundException extends Exception {
+public class AccountNumberNotFoundException extends BusinessException {
 
     private long accountNumber;
 

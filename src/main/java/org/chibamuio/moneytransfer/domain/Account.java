@@ -4,7 +4,9 @@ package org.chibamuio.moneytransfer.domain;
 import org.javamoney.moneta.Money;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class Account implements Serializable {
 	private long accountNumber;
@@ -66,9 +68,9 @@ public final class Account implements Serializable {
 		private LocalDateTime createdAt;
 		private LocalDateTime lastModified;
 		private Account account;
-
-		public Builder withAccountNumber(final long accountNumber) {
-			this.accountNumber = accountNumber;
+		private static AtomicReference<Long> currentTime = new AtomicReference<>(Instant.now().toEpochMilli());
+		public Builder withAccountNumber() {
+			this.accountNumber = currentTime.accumulateAndGet(Instant.now().toEpochMilli(), (prev, next) -> next > prev ? next : prev + 1);
 			return this;
 		}
 

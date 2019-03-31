@@ -1,6 +1,6 @@
 package org.chibamuio.moneytransfer.exceptions;
 
-public class CloseNoneEmptyAccountException extends Exception {
+public class CloseNoneEmptyAccountException extends BusinessException {
     private long accountNumber;
 
     public CloseNoneEmptyAccountException(long  accountNumber) {

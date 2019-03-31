@@ -1,15 +1,21 @@
 package org.chibamuio.moneytransfer.rest.dto;
 
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public final class DepositReqDto {
 
-    private long accountNumber;
+    @NotNull
+    private Long accountNumber;
+    @NotBlank
     private String currency;
+    @Min(value = 10)
     private BigDecimal amount;
 
 
-    public long getAccountNumber() {
+    public Long getAccountNumber() {
         return accountNumber;
     }
 

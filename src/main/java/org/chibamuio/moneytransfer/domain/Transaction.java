@@ -2,7 +2,9 @@ package org.chibamuio.moneytransfer.domain;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class Transaction implements Serializable {
 
@@ -85,9 +87,9 @@ public final class Transaction implements Serializable {
         private LocalDateTime createdAt;
         private TransactionType transactionType;
         private Transaction transaction;
-
-        public Builder withTransactionId(long transactionId) {
-            this.transactionId = transactionId;
+        private static AtomicReference<Long> currentTime = new AtomicReference<>(Instant.now().toEpochMilli());
+        public Builder withTransactionId() {
+            this.transactionId = currentTime.accumulateAndGet(Instant.now().toEpochMilli(), (prev, next) -> next > prev ? next : prev + 1);
             return this;
         }
 
@@ -117,8 +119,8 @@ public final class Transaction implements Serializable {
             return this;
         }
 
-        public Builder withCreatedAt(LocalDateTime createdAt) {
-            this.createdAt = createdAt;
+        public Builder withCreatedAt() {
+            this.createdAt = LocalDateTime.now();
             return this;
         }
 

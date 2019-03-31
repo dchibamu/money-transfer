@@ -1,6 +1,6 @@
 package org.chibamuio.moneytransfer.exceptions;
 
-public class CustomerNotFoundException extends RuntimeException {
+public class CustomerNotFoundException extends BusinessException {
 
     private long nationalIdNumber;
     public CustomerNotFoundException(final long nationalIdNumber) {

@@ -2,10 +2,11 @@ package org.chibamuio.moneytransfer.exceptions;
 
 import org.javamoney.moneta.Money;
 
-public class InSufficientFundsException extends Exception {
+public class InSufficientFundsException extends BusinessException {
 
     private Money requestedAmount;
     private long accountNumber;
+
     public InSufficientFundsException(Money requestedAmount, long accountNumber) {
         this.requestedAmount = requestedAmount;
         this.accountNumber = accountNumber;

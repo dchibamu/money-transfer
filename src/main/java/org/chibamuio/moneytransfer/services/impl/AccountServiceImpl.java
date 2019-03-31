@@ -7,16 +7,12 @@ import org.chibamuio.moneytransfer.domain.Account;
 import org.chibamuio.moneytransfer.domain.Customer;
 import org.chibamuio.moneytransfer.domain.Transaction;
 import org.chibamuio.moneytransfer.domain.TransactionType;
-import org.chibamuio.moneytransfer.exceptions.AccountNumberNotFoundException;
-import org.chibamuio.moneytransfer.exceptions.CloseNoneEmptyAccountException;
-import org.chibamuio.moneytransfer.exceptions.CustomerNotFoundException;
-import org.chibamuio.moneytransfer.exceptions.InSufficientFundsException;
+import org.chibamuio.moneytransfer.exceptions.*;
 import org.chibamuio.moneytransfer.rest.dto.CustomerDto;
 import org.chibamuio.moneytransfer.rest.dto.DepositReqDto;
 import org.chibamuio.moneytransfer.rest.dto.TransferDto;
 import org.chibamuio.moneytransfer.rest.dto.WithdrawalReqDto;
 import org.chibamuio.moneytransfer.services.AccountService;
-import org.chibamuio.moneytransfer.services.CustomerService;
 import org.javamoney.moneta.Money;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +21,6 @@ import javax.inject.Inject;
 import javax.money.Monetary;
 import javax.money.MonetaryAmount;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -35,17 +30,18 @@ public class AccountServiceImpl implements AccountService {
     private AccountDao<Account> accountDao;
     private CustomerDao<Customer> customerDao;
     private TransactionDao<Transaction> transactionDao;
+    private static Logger LOG = LoggerFactory.getLogger(AccountServiceImpl.class);
 
     @Inject
-    public AccountServiceImpl(AccountDao<Account> accountDao, CustomerDao<Customer> customerDao, TransactionDao<Transaction> transactionDao) {
+    public AccountServiceImpl(AccountDao accountDao, CustomerDao customerDao, TransactionDao transactionDao) {
         this.accountDao = accountDao;
         this.customerDao = customerDao;
         this.transactionDao = transactionDao;
     }
 
     @Override
-    public Optional<Account> create(CustomerDto customerDto){
-        Customer customer;
+    public Optional<Account> create(CustomerDto customerDto) throws BusinessException {
+        Customer customer = null;
         if(customerDao.isNewCustomer(customerDto.getNationalIdNumber())){
             customer = Customer.getBuilder()
                     .withNationalIdNumber(customerDto.getNationalIdNumber())
@@ -67,18 +63,18 @@ public class AccountServiceImpl implements AccountService {
         Money openingBalance = Money.of(customerDto.getAmount(), Monetary.getCurrency(customerDto.getCurrency()));
         Account account = Account.getBuilder()
                 .withCustomer(customer)
-                .withAccountNumber(accountNumber)
+                .withAccountNumber()
                 .withBalance(openingBalance)
                 .build();
         accountDao.persist(account);
 
         Transaction transaction = Transaction.getBuilder()
                                     .withTransactionType(TransactionType.OPEN_ACCOUNT)
-                                    .withCreatedAt(LocalDateTime.now())
+                                    .withCreatedAt()
                                     .withDestinationAccount(account)
                                     .withCurrency(openingBalance.getCurrency().getCurrencyCode())
                                     .withAmount(openingBalance.getNumberStripped())
-                                    .withTransactionId(generateTransactionId())
+                                    .withTransactionId()
                                     .build();
         transactionDao.persist(transaction);
         return Optional.of(account);
@@ -99,12 +95,12 @@ public class AccountServiceImpl implements AccountService {
         );
         Money depositAmount = Money.of(depositReqDto.getAmount(), depositReqDto.getCurrency());
         Transaction transaction = Transaction.getBuilder()
-                .withTransactionId(generateTransactionId())
+                .withTransactionId()
                 .withTransactionType(TransactionType.DEPOSIT)
                 .withAmount(depositAmount.getNumberStripped())
                 .withCurrency(depositAmount.getCurrency().getCurrencyCode())
                 .withDestinationAccount(account)
-                .withCreatedAt(LocalDateTime.now())
+                .withCreatedAt()
                 .build();
         transactionDao.persist(transaction);
         MonetaryAmount additionalAmt = Monetary.getDefaultAmountFactory()
@@ -126,12 +122,12 @@ public class AccountServiceImpl implements AccountService {
             throw new InSufficientFundsException(withdrawalAmount, withdrawalReqDto.getAccountNumber());
 
         Transaction transaction = Transaction.getBuilder()
-                .withTransactionId(generateTransactionId())
+                .withTransactionId()
                 .withTransactionType(TransactionType.WITHDRAWAL)
                 .withAmount(withdrawalAmount.getNumberStripped())
                 .withCurrency(withdrawalAmount.getCurrency().getCurrencyCode())
                 .withSourceAccount(account)
-                .withCreatedAt(LocalDateTime.now())
+                .withCreatedAt()
                 .build();
         transactionDao.persist(transaction);
         MonetaryAmount additionalAmt = Monetary.getDefaultAmountFactory()
@@ -156,13 +152,13 @@ public class AccountServiceImpl implements AccountService {
                 () -> new AccountNumberNotFoundException(transferDto.getTargetAccountNumber())
         );
         Transaction transaction = Transaction.getBuilder()
-                .withTransactionId(generateTransactionId())
+                .withTransactionId()
                 .withAmount(transferAmount.getNumberStripped())
                 .withCurrency(transferAmount.getCurrency().getCurrencyCode())
                 .withTransactionType(TransactionType.TRANSFER)
                 .withSourceAccount(sourceAccount)
                 .withDestinationAccount(targetAccount)
-                .withCreatedAt(LocalDateTime.now())
+                .withCreatedAt()
                 .build();
         MonetaryAmount additionalAmt = Monetary.getDefaultAmountFactory()
                 .setCurrency(transferAmount.getCurrency())
@@ -202,11 +198,11 @@ public class AccountServiceImpl implements AccountService {
         return account.getBalance();
     }
 
+    /**
+     * Generates 10 digit number as identifier for account
+     * @return long
+     */
     private long generateAccountNumber() {
         return (long) Math.floor(Math.random() * 9_000_000_000L) + 1_000_000_000L;
-    }
-
-    private long generateTransactionId() {
-        return Instant.now().toEpochMilli();
     }
 }
