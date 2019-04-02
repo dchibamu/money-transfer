@@ -34,8 +34,8 @@ public class JaxRsApplication extends ResourceConfig {
                 bind(AccountNumberNotFoundExceptionMapper.class);
                 bind(CustomerNotFoundExceptionMapper.class);
                 bind(InSufficientFundsExceptionMapper.class);
-                bind(GenericExceptionMapper.class);
                 bind(InputValidationExceptionMapper.class);
+                bind(SameAccountTransferExceptionMapper.class);
 
             }
         });

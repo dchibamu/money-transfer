@@ -49,3 +49,4 @@ public class BusinessException extends Exception {
         this.stackExceptionTrace = stackExceptionTrace;
     }
 }
+

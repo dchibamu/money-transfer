@@ -12,7 +12,6 @@ public final class Transaction implements Serializable {
     private Account sourceAccount;
     private Account destinationAccount;
     private BigDecimal amount;
-    private String currency;
     private TransactionType transactionType;
     private LocalDateTime createdAt;
 
@@ -31,11 +30,6 @@ public final class Transaction implements Serializable {
     public BigDecimal getAmount() {
         return amount;
     }
-
-    public String getCurrency() {
-        return currency;
-    }
-
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -61,10 +55,6 @@ public final class Transaction implements Serializable {
         this.amount = amount;
     }
 
-    private void setCurrency(String currency) {
-        this.currency = currency;
-    }
-
     private void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
@@ -74,7 +64,9 @@ public final class Transaction implements Serializable {
     }
 
     public static Builder getBuilder(){
-        return new Builder();
+        return new Builder()
+                .withTransactionId()
+                .withCreatedAt();
     }
 
     public static class Builder {
@@ -83,12 +75,11 @@ public final class Transaction implements Serializable {
         private Account sourceAccount;
         private Account destinationAccount;
         private BigDecimal amount;
-        private String currency;
         private LocalDateTime createdAt;
         private TransactionType transactionType;
         private Transaction transaction;
         private static AtomicReference<Long> currentTime = new AtomicReference<>(Instant.now().toEpochMilli());
-        public Builder withTransactionId() {
+        private Builder withTransactionId() {
             this.transactionId = currentTime.accumulateAndGet(Instant.now().toEpochMilli(), (prev, next) -> next > prev ? next : prev + 1);
             return this;
         }
@@ -109,17 +100,12 @@ public final class Transaction implements Serializable {
         }
 
 
-        public Builder withCurrency(String currency){
-            this.currency = currency;
-            return this;
-        }
-
         public Builder withTransactionType(TransactionType transactionType) {
             this.transactionType = transactionType;
             return this;
         }
 
-        public Builder withCreatedAt() {
+        private Builder withCreatedAt() {
             this.createdAt = LocalDateTime.now();
             return this;
         }
@@ -134,7 +120,6 @@ public final class Transaction implements Serializable {
             transaction.setSourceAccount(sourceAccount);
             transaction.setDestinationAccount(destinationAccount);
             transaction.setAmount(amount);
-            transaction.setCurrency(currency);
             transaction.setTransactionType(transactionType);
             transaction.setCreatedAt(createdAt);
             return transaction;
@@ -152,7 +137,6 @@ public final class Transaction implements Serializable {
         if (!getSourceAccount().equals(that.getSourceAccount())) return false;
         if (!getDestinationAccount().equals(that.getDestinationAccount())) return false;
         if (!getAmount().equals(that.getAmount())) return false;
-        if (!getCurrency().equals(that.getCurrency())) return false;
         if (getTransactionType() != that.getTransactionType()) return false;
         return getCreatedAt().equals(that.getCreatedAt());
     }
@@ -163,7 +147,6 @@ public final class Transaction implements Serializable {
         result = 31 * result + getSourceAccount().hashCode();
         result = 31 * result + getDestinationAccount().hashCode();
         result = 31 * result + getAmount().hashCode();
-        result = 31 * result + getCurrency().hashCode();
         result = 31 * result + getTransactionType().hashCode();
         result = 31 * result + getCreatedAt().hashCode();
         return result;

@@ -12,15 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CustomerDaoImpl implements CustomerDao<Customer> {
 
     private volatile static Map<Long, Customer > customers = new ConcurrentHashMap<>();
-    private static final Logger LOG = LoggerFactory.getLogger(CustomerDao.class);
+
     @Override
     public void persist(Customer customer) {
         customers.put(customer.getNationalIdNumber(), customer);
     }
 
     @Override
-    public Optional<Customer> update(Customer entity) {
-        return Optional.empty();
+    public Optional<Customer> update(Long nationalIdNumber, Customer customer) {
+        return Optional.ofNullable(customers.put(nationalIdNumber, customer));
     }
 
     @Override
@@ -29,8 +29,8 @@ public class CustomerDaoImpl implements CustomerDao<Customer> {
     }
 
     @Override
-    public void delete(Long id) {
-
+    public void delete(Long nationalIdNumber) {
+        customers.remove(nationalIdNumber);
     }
 
     @Override

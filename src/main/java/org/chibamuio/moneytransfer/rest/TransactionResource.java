@@ -1,16 +1,11 @@
 package org.chibamuio.moneytransfer.rest;
 
-import org.chibamuio.moneytransfer.domain.Account;
-import org.javamoney.moneta.Money;
-
 import javax.ws.rs.Consumes;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
-
 import java.math.BigDecimal;
 
 import static javax.ws.rs.core.Response.Status.OK;

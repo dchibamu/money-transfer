@@ -11,6 +11,8 @@ public final class Customer implements Serializable {
     private LocalDateTime createdAt;
     private LocalDateTime lastModified;
 
+    private Customer(){}
+
     public long getNationalIdNumber() {
         return nationalIdNumber;
     }
@@ -52,7 +54,7 @@ public final class Customer implements Serializable {
     }
 
     public static Builder getBuilder(){
-        return new Builder();
+        return new Builder().withCreatedAt();
     }
 
     public static class Builder{
@@ -63,7 +65,7 @@ public final class Customer implements Serializable {
         private LocalDateTime lastModified;
         private Customer customer;
 
-        public Builder() {
+        private Builder() {
         }
 
         public Builder withNationalIdNumber(long nationalIdNumber) {
@@ -81,7 +83,7 @@ public final class Customer implements Serializable {
             return this;
         }
 
-        public Builder withCreatedAt() {
+        private Builder withCreatedAt() {
             this.createdAt = LocalDateTime.now();
             return this;
         }

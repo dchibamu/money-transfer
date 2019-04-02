@@ -24,8 +24,8 @@ public class AccountDaoImpl implements AccountDao<Account> {
     }
 
     @Override
-    public Optional<Account> update(Account entity) {
-        return Optional.empty();
+    public Optional<Account> update(Long accountNumber, Account account) {
+        return Optional.ofNullable(accounts.put(accountNumber, account));
     }
 
     @Override

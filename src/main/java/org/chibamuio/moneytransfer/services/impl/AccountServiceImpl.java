@@ -8,22 +8,22 @@ import org.chibamuio.moneytransfer.domain.Customer;
 import org.chibamuio.moneytransfer.domain.Transaction;
 import org.chibamuio.moneytransfer.domain.TransactionType;
 import org.chibamuio.moneytransfer.exceptions.*;
-import org.chibamuio.moneytransfer.rest.dto.CustomerDto;
-import org.chibamuio.moneytransfer.rest.dto.DepositReqDto;
-import org.chibamuio.moneytransfer.rest.dto.TransferDto;
-import org.chibamuio.moneytransfer.rest.dto.WithdrawalReqDto;
+import org.chibamuio.moneytransfer.rest.dto.BalanceDTO;
+import org.chibamuio.moneytransfer.rest.dto.CustomerDTO;
+import org.chibamuio.moneytransfer.rest.dto.DepositWithdrawalReqDTO;
+import org.chibamuio.moneytransfer.rest.dto.TransferDTO;
 import org.chibamuio.moneytransfer.services.AccountService;
-import org.javamoney.moneta.Money;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.money.Monetary;
-import javax.money.MonetaryAmount;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
+
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class AccountServiceImpl implements AccountService {
 
@@ -31,6 +31,7 @@ public class AccountServiceImpl implements AccountService {
     private CustomerDao<Customer> customerDao;
     private TransactionDao<Transaction> transactionDao;
     private static Logger LOG = LoggerFactory.getLogger(AccountServiceImpl.class);
+    private static Random rand = new Random();
 
     @Inject
     public AccountServiceImpl(AccountDao accountDao, CustomerDao customerDao, TransactionDao transactionDao) {
@@ -40,48 +41,39 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Optional<Account> create(CustomerDto customerDto) throws BusinessException {
+    public Optional<Account> create(CustomerDTO customerDto) throws BusinessException {
         Customer customer = null;
-        if(customerDao.isNewCustomer(customerDto.getNationalIdNumber())){
+        if (customerDao.isNewCustomer(customerDto.getNationalIdNumber())) {
             customer = Customer.getBuilder()
                     .withNationalIdNumber(customerDto.getNationalIdNumber())
                     .withFirstName(customerDto.getFirstName())
                     .withLastName(customerDto.getLastName())
-                    .withCreatedAt()
                     .build();
             customerDao.persist(customer);
-        }else {
+        } else {
             customer = customerDao.findOne(customerDto.getNationalIdNumber()).orElseThrow(
                     () -> new CustomerNotFoundException(customerDto.getNationalIdNumber())
             );
         }
 
-        long accountNumber = generateAccountNumber();
-        while(accountDao.accountExist(accountNumber)){
-            accountNumber = generateAccountNumber();
-        }
-        Money openingBalance = Money.of(customerDto.getAmount(), Monetary.getCurrency(customerDto.getCurrency()));
         Account account = Account.getBuilder()
                 .withCustomer(customer)
-                .withAccountNumber()
-                .withBalance(openingBalance)
+                .withBalance(customerDto.getAmount())
+                .withCurrency(customerDto.getCurrency())
                 .build();
         accountDao.persist(account);
 
         Transaction transaction = Transaction.getBuilder()
-                                    .withTransactionType(TransactionType.OPEN_ACCOUNT)
-                                    .withCreatedAt()
-                                    .withDestinationAccount(account)
-                                    .withCurrency(openingBalance.getCurrency().getCurrencyCode())
-                                    .withAmount(openingBalance.getNumberStripped())
-                                    .withTransactionId()
-                                    .build();
+                .withTransactionType(TransactionType.OPEN_ACCOUNT)
+                .withDestinationAccount(account)
+                .withAmount(customerDto.getAmount())
+                .build();
         transactionDao.persist(transaction);
         return Optional.of(account);
     }
 
     @Override
-    public List<Account> getAll(long nationalIdNumber) throws CustomerNotFoundException{
+    public List<Account> getAll(long nationalIdNumber) throws CustomerNotFoundException {
         Customer customer = customerDao.findOne(nationalIdNumber).orElseThrow(
                 () -> new CustomerNotFoundException(nationalIdNumber)
         );
@@ -89,86 +81,99 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public void deposit(DepositReqDto depositReqDto) throws AccountNumberNotFoundException{
+    public void deposit(DepositWithdrawalReqDTO depositReqDto) throws AccountNumberNotFoundException {
         Account account = findAccountByAccNo(depositReqDto.getAccountNumber()).orElseThrow(
                 () -> new AccountNumberNotFoundException(depositReqDto.getAccountNumber())
         );
-        Money depositAmount = Money.of(depositReqDto.getAmount(), depositReqDto.getCurrency());
-        Transaction transaction = Transaction.getBuilder()
-                .withTransactionId()
-                .withTransactionType(TransactionType.DEPOSIT)
-                .withAmount(depositAmount.getNumberStripped())
-                .withCurrency(depositAmount.getCurrency().getCurrencyCode())
-                .withDestinationAccount(account)
-                .withCreatedAt()
-                .build();
-        transactionDao.persist(transaction);
-        MonetaryAmount additionalAmt = Monetary.getDefaultAmountFactory()
-                                                .setCurrency(depositAmount.getCurrency())
-                                                .setNumber(depositAmount.getNumber())
-                                                .create();
-        account.setBalance(account.getBalance().add(additionalAmt));
-        account.setLastModified(LocalDateTime.now());
+
+        account.getWriteLock().lock();
+        try {
+            Transaction transaction = Transaction.getBuilder()
+                    .withTransactionType(TransactionType.DEPOSIT)
+                    .withAmount(depositReqDto.getAmount())
+                    .withDestinationAccount(account)
+                    .build();
+            transactionDao.persist(transaction);
+            account.setBalance(account.getBalance().add(depositReqDto.getAmount()));
+            account.setLastModified(LocalDateTime.now());
+        }finally {
+            account.getWriteLock().unlock();
+        }
     }
 
     @Override
-    public void withdraw(WithdrawalReqDto withdrawalReqDto) throws AccountNumberNotFoundException, InSufficientFundsException{
+    public void withdraw(DepositWithdrawalReqDTO withdrawalReqDto) throws AccountNumberNotFoundException, InsufficientFundsException {
         Account account = findAccountByAccNo(withdrawalReqDto.getAccountNumber()).orElseThrow(
                 () -> new AccountNumberNotFoundException(withdrawalReqDto.getAccountNumber())
         );
-        Money withdrawalAmount = Money.of(withdrawalReqDto.getAmount(), withdrawalReqDto.getCurrency());
 
-        if(account.getBalance().getNumberStripped().compareTo(withdrawalReqDto.getAmount()) < 0)
-            throw new InSufficientFundsException(withdrawalAmount, withdrawalReqDto.getAccountNumber());
+        if (account.getBalance().compareTo(withdrawalReqDto.getAmount()) < 0)
+            throw new InsufficientFundsException(withdrawalReqDto.getAmount(), account.getCurrency(), withdrawalReqDto.getAccountNumber());
 
-        Transaction transaction = Transaction.getBuilder()
-                .withTransactionId()
-                .withTransactionType(TransactionType.WITHDRAWAL)
-                .withAmount(withdrawalAmount.getNumberStripped())
-                .withCurrency(withdrawalAmount.getCurrency().getCurrencyCode())
-                .withSourceAccount(account)
-                .withCreatedAt()
-                .build();
-        transactionDao.persist(transaction);
-        MonetaryAmount additionalAmt = Monetary.getDefaultAmountFactory()
-                .setCurrency(withdrawalAmount.getCurrency())
-                .setNumber(withdrawalAmount.getNumber())
-                .create();
-        account.setBalance(account.getBalance().subtract(additionalAmt));
-        account.setLastModified(LocalDateTime.now());
+        account.getWriteLock().lock();
+        try {
+            Transaction transaction = Transaction.getBuilder()
+                    .withTransactionType(TransactionType.WITHDRAWAL)
+                    .withAmount(withdrawalReqDto.getAmount())
+                    .withSourceAccount(account)
+                    .build();
+            transactionDao.persist(transaction);
+            account.setBalance(account.getBalance().subtract(withdrawalReqDto.getAmount()));
+            account.setLastModified(LocalDateTime.now());
+        }finally {
+            account.getWriteLock().unlock();
+        }
     }
 
     @Override
-    public void transfer(TransferDto transferDto) throws AccountNumberNotFoundException, InSufficientFundsException {
+    public void transfer(TransferDTO transferDto) throws AccountNumberNotFoundException, InsufficientFundsException, SameAccountTransferException {
+        if(transferDto.getSourceAccountNumber() == transferDto.getTargetAccountNumber())
+            throw new SameAccountTransferException(transferDto.getSourceAccountNumber(), transferDto.getTargetAccountNumber());
+
         Account sourceAccount = findAccountByAccNo(transferDto.getSourceAccountNumber()).orElseThrow(
                 () -> new AccountNumberNotFoundException(transferDto.getSourceAccountNumber())
         );
-        Money transferAmount = Money.of(transferDto.getAmount(), transferDto.getCurrency());
 
-        if(sourceAccount.getBalance().getNumberStripped().compareTo(transferDto.getAmount()) < 0)
-            throw new InSufficientFundsException(transferAmount, transferDto.getSourceAccountNumber());
+        if (sourceAccount.getBalance().compareTo(transferDto.getAmount()) < 0)
+            throw new InsufficientFundsException(transferDto.getAmount(), sourceAccount.getCurrency(), transferDto.getSourceAccountNumber());
 
         Account targetAccount = findAccountByAccNo(transferDto.getTargetAccountNumber()).orElseThrow(
                 () -> new AccountNumberNotFoundException(transferDto.getTargetAccountNumber())
         );
-        Transaction transaction = Transaction.getBuilder()
-                .withTransactionId()
-                .withAmount(transferAmount.getNumberStripped())
-                .withCurrency(transferAmount.getCurrency().getCurrencyCode())
-                .withTransactionType(TransactionType.TRANSFER)
-                .withSourceAccount(sourceAccount)
-                .withDestinationAccount(targetAccount)
-                .withCreatedAt()
-                .build();
-        MonetaryAmount additionalAmt = Monetary.getDefaultAmountFactory()
-                .setCurrency(transferAmount.getCurrency())
-                .setNumber(transferAmount.getNumber())
-                .create();
-        sourceAccount.setBalance(sourceAccount.getBalance().subtract(additionalAmt));
-        targetAccount.setBalance(targetAccount.getBalance().add(additionalAmt));
-        sourceAccount.setLastModified(LocalDateTime.now());
-        targetAccount.setLastModified(LocalDateTime.now());
-        transactionDao.persist(transaction);
+        while (true) {
+            if (sourceAccount.getWriteLock().tryLock()) {
+                try {
+                    if (targetAccount.getWriteLock().tryLock()) {
+                        try {
+                            Transaction transaction = Transaction.getBuilder()
+                                    .withAmount(transferDto.getAmount())
+                                    .withTransactionType(TransactionType.TRANSFER)
+                                    .withSourceAccount(sourceAccount)
+                                    .withDestinationAccount(targetAccount)
+                                    .build();
+                            sourceAccount.setBalance(sourceAccount.getBalance().subtract(transferDto.getAmount()));
+                            targetAccount.setBalance(targetAccount.getBalance().add(transferDto.getAmount()));
+                            sourceAccount.setLastModified(LocalDateTime.now());
+                            targetAccount.setLastModified(LocalDateTime.now());
+                            transactionDao.persist(transaction);
+                            return;
+                        } finally {
+                            targetAccount.getWriteLock().unlock();
+                        }
+                    }
+                } finally {
+                    sourceAccount.getWriteLock().unlock();
+                }
+            }
+            int n = rand.nextInt(1000);
+            int randomDelay = 1000 + n; // 1 second + random delay to prevent livelock
+            try {
+                NANOSECONDS.sleep(randomDelay);
+            } catch (InterruptedException e) {
+                LOG.error(e.getMessage(), e);
+            }
+        }
+
     }
 
     @Override
@@ -176,33 +181,34 @@ public class AccountServiceImpl implements AccountService {
         Account targetAccount = findAccountByAccNo(accountNumber).orElseThrow(
                 () -> new AccountNumberNotFoundException(accountNumber)
         );
-        MonetaryAmount zeroAmount = Monetary.getDefaultAmountFactory()
-                .setCurrency(targetAccount.getBalance().getCurrency())
-                .setNumber(BigDecimal.ZERO).create();
-        if(targetAccount.getBalance().isEqualTo(zeroAmount)){
+
+        if (targetAccount.getBalance().compareTo(BigDecimal.ZERO) > 0) {
             throw new CloseNoneEmptyAccountException(targetAccount.getAccountNumber());
         }
-        accountDao.delete(targetAccount.getAccountNumber());
+        targetAccount.getWriteLock().lock();
+        try{
+            accountDao.delete(targetAccount.getAccountNumber());
+        }finally {
+            targetAccount.getWriteLock().unlock();
+        }
+
+    }
+
+    @Override
+    public BalanceDTO balance(long accountNumber) throws AccountNumberNotFoundException {
+        Account account = findAccountByAccNo(accountNumber).orElseThrow(
+                () -> new AccountNumberNotFoundException(accountNumber)
+        );
+        account.getReadLock().lock();
+        try{
+            return new BalanceDTO(account.getBalance(), account.getCurrency());
+        }finally {
+            account.getReadLock().unlock();
+        }
     }
 
     @Override
     public Optional<Account> findAccountByAccNo(long accountNumber) {
         return accountDao.findOne(accountNumber);
-    }
-
-    @Override
-    public Money balance(long accountNumber) throws AccountNumberNotFoundException {
-        Account account = findAccountByAccNo(accountNumber).orElseThrow(
-                () -> new AccountNumberNotFoundException(accountNumber)
-        );
-        return account.getBalance();
-    }
-
-    /**
-     * Generates 10 digit number as identifier for account
-     * @return long
-     */
-    private long generateAccountNumber() {
-        return (long) Math.floor(Math.random() * 9_000_000_000L) + 1_000_000_000L;
     }
 }

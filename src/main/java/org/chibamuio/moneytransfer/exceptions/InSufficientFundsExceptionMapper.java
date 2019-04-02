@@ -6,10 +6,10 @@ import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 
 @Provider
-public class InSufficientFundsExceptionMapper implements ExceptionMapper<InSufficientFundsException> {
+public class InSufficientFundsExceptionMapper implements ExceptionMapper<InsufficientFundsException> {
 
     @Override
-    public Response toResponse(InSufficientFundsException exception) {
+    public Response toResponse(InsufficientFundsException exception) {
         return Response
                 .status(Response.Status.BAD_REQUEST)
                 .entity(exception.getMessage())

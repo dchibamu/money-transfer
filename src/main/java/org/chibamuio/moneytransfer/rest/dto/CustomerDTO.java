@@ -5,9 +5,11 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 
-public final class CustomerDto implements BaseDto<CustomerDto> {
+import static org.chibamuio.moneytransfer.util.AppConstants.NATIONAL_ID_NUMBER_LENGTH;
 
-    @Digits(integer = 13, fraction = 0, message = "National identity number must be exactly 13 numbers")
+public final class CustomerDTO implements BaseDTO<CustomerDTO> {
+
+    @Digits(integer = NATIONAL_ID_NUMBER_LENGTH, fraction = 0, message = "National identity number must be exactly 13 numbers")
     private long nationalIdNumber;
     @NotBlank(message = "First Name is required")
     private String firstName;
@@ -18,10 +20,10 @@ public final class CustomerDto implements BaseDto<CustomerDto> {
     @Min(value = 0, message = "Opening balance should not be less than zero")
     private BigDecimal amount;
 
-    private CustomerDto() {
+    private CustomerDTO() {
     }
 
-    private CustomerDto(long nationalIdNumber, String firstName, String lastName, String currency, BigDecimal amount) {
+    private CustomerDTO(long nationalIdNumber, String firstName, String lastName, String currency, BigDecimal amount) {
         this.nationalIdNumber = nationalIdNumber;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -49,13 +51,13 @@ public final class CustomerDto implements BaseDto<CustomerDto> {
         return amount;
     }
 
-    public static CustomerDto newCustomerDto(long nationalIdNumber, String firstName, String lastName, String currency, BigDecimal amount){
-        return new CustomerDto(nationalIdNumber, firstName, lastName, currency, amount);
+    public static CustomerDTO newCustomerDto(long nationalIdNumber, String firstName, String lastName, String currency, BigDecimal amount){
+        return new CustomerDTO(nationalIdNumber, firstName, lastName, currency, amount);
     }
 
     @Override
     public String toString() {
-        return "CustomerDto{" +
+        return "CustomerDTO{" +
                 "nationalIdNumber='" + nationalIdNumber + '\'' +
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +

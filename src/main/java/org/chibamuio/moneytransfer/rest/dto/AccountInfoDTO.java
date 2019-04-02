@@ -1,10 +1,9 @@
 package org.chibamuio.moneytransfer.rest.dto;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 
 
-public final class AccountInfoDto implements Serializable {
+public final class AccountInfoDTO implements BaseDTO<AccountInfoDTO> {
 
     private long accountNumber;
     private BigDecimal balance;
@@ -15,10 +14,10 @@ public final class AccountInfoDto implements Serializable {
     private String createdAt;
     private String lastModified;
 
-    private AccountInfoDto() {
+    private AccountInfoDTO() {
     }
 
-    public AccountInfoDto(long accountNumber, BigDecimal balance, String currency, long nationalIdNumber, String firstName, String lastName, String createdAt, String lastModified) {
+    public AccountInfoDTO(long accountNumber, BigDecimal balance, String currency, long nationalIdNumber, String firstName, String lastName, String createdAt, String lastModified) {
         this.accountNumber = accountNumber;
         this.balance = balance;
         this.currency = currency;

@@ -1,28 +1,39 @@
 package org.chibamuio.moneytransfer.domain;
 
 
-import org.javamoney.moneta.Money;
-
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public final class Account implements Serializable {
 	private long accountNumber;
-	private Money balance;
+	private BigDecimal balance;
+	private String currency;
 	private Customer customer;
 	private LocalDateTime createdAt;
 	private LocalDateTime lastModified;
+    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
+    private final Lock readLock = readWriteLock.readLock();
+    private final Lock writeLock = readWriteLock.writeLock();
 
-	private Account(){}
+	private Account(){
+    }
 
 	public long getAccountNumber() {
 		return accountNumber;
 	}
 
-	public Money getBalance() {
+	public BigDecimal getBalance() {
 		return balance;
+	}
+
+	public String getCurrency() {
+		return currency;
 	}
 
 	public Customer getCustomer() {
@@ -37,12 +48,24 @@ public final class Account implements Serializable {
 		return lastModified;
 	}
 
+	public Lock getReadLock() {
+	    return readLock;
+    }
+
+    public Lock getWriteLock(){
+	    return writeLock;
+    }
+
 	private void setAccountNumber(long accountNumber) {
 		this.accountNumber = accountNumber;
 	}
 
-	public void setBalance(Money balance) {
+	public void setBalance(BigDecimal balance) {
 		this.balance = balance;
+	}
+
+	private void setCurrency(String currency) {
+		this.currency = currency;
 	}
 
 	private void setCustomer(Customer customer) {
@@ -58,18 +81,19 @@ public final class Account implements Serializable {
 	}
 
 	public static Builder getBuilder(){
-		return new Builder();
+		return new Builder().withAccountNumber().withCreatedAt();
 	}
 
 	public static class Builder {
 		private long accountNumber;
-		private Money balance;
+		private BigDecimal balance;
+		private String currency;
 		private Customer customer;
 		private LocalDateTime createdAt;
 		private LocalDateTime lastModified;
 		private Account account;
 		private static AtomicReference<Long> currentTime = new AtomicReference<>(Instant.now().toEpochMilli());
-		public Builder withAccountNumber() {
+		private Builder withAccountNumber() {
 			this.accountNumber = currentTime.accumulateAndGet(Instant.now().toEpochMilli(), (prev, next) -> next > prev ? next : prev + 1);
 			return this;
 		}
@@ -79,7 +103,7 @@ public final class Account implements Serializable {
 			return this;
 		}
 
-		public Builder withCreatedAt() {
+		private Builder withCreatedAt() {
 			this.createdAt = LocalDateTime.now();
 			return this;
 		}
@@ -89,8 +113,13 @@ public final class Account implements Serializable {
 			return this;
 		}
 
-		public Builder withBalance(final Money balance){
+		public Builder withBalance(final BigDecimal balance){
 			this.balance = balance;
+			return this;
+		}
+
+		public Builder withCurrency(final String currency){
+			this.currency = currency;
 			return this;
 		}
 
@@ -98,6 +127,7 @@ public final class Account implements Serializable {
 			account = new Account();
 			account.setAccountNumber(accountNumber);
 			account.setBalance(balance);
+			account.setCurrency(currency);
 			account.setCustomer(customer);
 			account.setCreatedAt(LocalDateTime.now());
 			account.setLastModified(LocalDateTime.now());

@@ -14,10 +14,12 @@
     <javaee-api>8.0</javaee-api>
     <junit>5.3.2</junit>
     <hamcrest-library>2.1</hamcrest-library>
-    <moneta>1.3</moneta>
     <jersey.version>2.28</jersey.version>
     <stringutils>3.8.1</stringutils>
     <maven-surefire-plugin>2.22.1</maven-surefire-plugin>
+    <slf4j.version>1.7.26</slf4j.version>
+    <logback.version>1.2.3</logback.version>
+    <mockito-core.version>2.7.22</mockito-core.version>
   </properties>
 
   <dependencies>
@@ -66,36 +68,24 @@
       <version>${jersey.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>${stringutils}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.javamoney</groupId>
-      <artifactId>moneta</artifactId>
-      <version>${moneta}</version>
-      <type>pom</type>
-    </dependency>
-    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>1.7.26</version>
+      <version>${slf4j.version}</version>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>${logback.version}</version>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-core</artifactId>
-      <version>1.2.3</version>
+      <version>${logback.version}</version>
     </dependency>
-
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>2.7.22</version>
+      <version>${mockito-core.version}</version>
     </dependency>
     <dependency>
       <groupId>org.hamcrest</groupId>
@@ -145,7 +135,25 @@
           </execution>
         </executions>
       </plugin>
-
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
