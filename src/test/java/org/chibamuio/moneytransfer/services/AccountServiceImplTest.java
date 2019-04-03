@@ -6,9 +6,13 @@ import org.chibamuio.moneytransfer.dao.TransactionDao;
 import org.chibamuio.moneytransfer.domain.Account;
 import org.chibamuio.moneytransfer.domain.Customer;
 import org.chibamuio.moneytransfer.domain.Transaction;
+import org.chibamuio.moneytransfer.exceptions.AccountNumberNotFoundException;
 import org.chibamuio.moneytransfer.exceptions.BusinessException;
 import org.chibamuio.moneytransfer.exceptions.CustomerNotFoundException;
+import org.chibamuio.moneytransfer.exceptions.InsufficientFundsException;
+import org.chibamuio.moneytransfer.rest.dto.BalanceDTO;
 import org.chibamuio.moneytransfer.rest.dto.CustomerDTO;
+import org.chibamuio.moneytransfer.rest.dto.DepositWithdrawalReqDTO;
 import org.chibamuio.moneytransfer.services.impl.AccountServiceImpl;
 import org.junit.Before;
 import org.junit.Rule;
@@ -19,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +33,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -101,6 +107,76 @@ public class AccountServiceImplTest {
         exceptionRule.expectMessage("Customer with national identity number 0 cannot be found.");
         List<Account> accountList = accountService.getAll(9008047193475L);
         assertThat(accountList, is(empty()));
+    }
+
+    @Test
+    public void depositSuccessfulTest() throws BusinessException{
+        DepositWithdrawalReqDTO depositReqDTO = new DepositWithdrawalReqDTO(9008047193475L, BigDecimal.valueOf(100));
+        Account targetAcc = createMockAccount();
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(targetAcc));
+        doNothing().when(transactionDao).persist(isA(Transaction.class));
+        BalanceDTO balanceDTO = accountService.balance(9008047193475L);
+        assertEquals(targetAcc.getBalance(), balanceDTO.getAmount());
+        accountService.deposit(depositReqDTO);
+        assertEquals(targetAcc.getBalance(), balanceDTO.getAmount().add(depositReqDTO.getAmount()));
+    }
+
+    @Test
+    public void withdrawalSuccessfulTest() throws BusinessException{
+        DepositWithdrawalReqDTO withdrawalReqDTO = new DepositWithdrawalReqDTO(9008047193475L, BigDecimal.valueOf(100.50));
+        Account sourceAcc = createMockAccountWithdraw();
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(sourceAcc));
+        doNothing().when(transactionDao).persist(isA(Transaction.class));
+        BalanceDTO balanceDTO = accountService.balance(9008047193475L);
+        assertEquals(sourceAcc.getBalance(), balanceDTO.getAmount());
+        accountService.withdraw(withdrawalReqDTO);
+        assertEquals(sourceAcc.getBalance(), balanceDTO.getAmount().subtract(withdrawalReqDTO.getAmount()));
+    }
+
+    @Test
+    public void withdrawalThrowsInsufficientFundsExceptionTest() throws BusinessException{
+        DepositWithdrawalReqDTO withdrawalReqDTO = new DepositWithdrawalReqDTO(9008047193475L, BigDecimal.valueOf(5000));
+        Account sourceAcc = createMockAccountWithdraw();
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(sourceAcc));
+        exceptionRule.expect(InsufficientFundsException.class);
+        exceptionRule.expectMessage("Cannot withdraw USD5000.00. Insufficient funds in account 9008047193475");
+        accountService.withdraw(withdrawalReqDTO);
+    }
+
+    @Test
+    public void withdrawalThrowsAccountNotFoundExceptionTest() throws BusinessException{
+        DepositWithdrawalReqDTO withdrawalReqDTO = new DepositWithdrawalReqDTO(1111111111111L, BigDecimal.valueOf(5000));
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.empty());
+        exceptionRule.expect(AccountNumberNotFoundException.class);
+        exceptionRule.expectMessage(String.format("Account number %d cannot be found.", 1111111111111L));
+        accountService.withdraw(withdrawalReqDTO);
+    }
+
+    private Account createMockAccountWithdraw(){
+        Customer customer = Customer.getBuilder()
+                .withFirstName("Ngoni")
+                .withLastName("Chibamu")
+                .withNationalIdNumber(9008047193475L)
+                .build();
+        return Account.getBuilder()
+                .withBalance(BigDecimal.valueOf(1200))
+                .withCustomer(customer)
+                .withLastModified()
+                .withCurrency("USD")
+                .build();
+    }
+
+    private Account createMockAccount(){
+        Customer customer = Customer.getBuilder()
+                .withFirstName("Ngoni")
+                .withLastName("Chibamu")
+                .withNationalIdNumber(9008047193475L)
+                .build();
+        return Account.getBuilder()
+                .withBalance(BigDecimal.TEN)
+                .withCustomer(customer)
+                .withLastModified()
+                .build();
     }
 
     private List<Account> createMockAccounts() {
