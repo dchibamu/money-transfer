@@ -6,13 +6,11 @@ import org.chibamuio.moneytransfer.dao.TransactionDao;
 import org.chibamuio.moneytransfer.domain.Account;
 import org.chibamuio.moneytransfer.domain.Customer;
 import org.chibamuio.moneytransfer.domain.Transaction;
-import org.chibamuio.moneytransfer.exceptions.AccountNumberNotFoundException;
-import org.chibamuio.moneytransfer.exceptions.BusinessException;
-import org.chibamuio.moneytransfer.exceptions.CustomerNotFoundException;
-import org.chibamuio.moneytransfer.exceptions.InsufficientFundsException;
+import org.chibamuio.moneytransfer.exceptions.*;
 import org.chibamuio.moneytransfer.rest.dto.BalanceDTO;
 import org.chibamuio.moneytransfer.rest.dto.CustomerDTO;
 import org.chibamuio.moneytransfer.rest.dto.DepositWithdrawalReqDTO;
+import org.chibamuio.moneytransfer.rest.dto.TransferDTO;
 import org.chibamuio.moneytransfer.services.impl.AccountServiceImpl;
 import org.junit.Before;
 import org.junit.Rule;
@@ -28,16 +26,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.*;
 
 public class AccountServiceImplTest {
@@ -66,8 +60,6 @@ public class AccountServiceImplTest {
     public void createAccountTest() throws BusinessException {
         CustomerDTO customerDto = CustomerDTO.newCustomerDto(9008016295194L, "DOMINIC", "CHIBAMU", "USD", BigDecimal.valueOf(200000));
         when(customerDao.isNewCustomer(anyLong())).thenReturn(true);
-        doNothing().when(accountDao).persist(isA(Account.class));
-        doNothing().when(transactionDao).persist(isA(Transaction.class));
         Optional<Account> account = accountService.create(customerDto);
         assertNotNull(account);
         verify(customerDao, times(1)).isNewCustomer(anyLong());
@@ -79,8 +71,6 @@ public class AccountServiceImplTest {
     public void createAccountWhenCustomerIsNotNewTest() throws BusinessException {
         CustomerDTO customerDto = CustomerDTO.newCustomerDto(9008016295194L, "DOMINIC", "CHIBAMU", "USD", BigDecimal.valueOf(200000));
         when(customerDao.isNewCustomer(anyLong())).thenReturn(false);
-        doNothing().when(accountDao).persist(isA(Account.class));
-        doNothing().when(transactionDao).persist(isA(Transaction.class));
         when(customerDao.findOne(anyLong())).thenReturn(Optional.of(Customer.getBuilder().build()));
         Optional<Account> account = accountService.create(customerDto);
         assertNotNull(account);
@@ -91,7 +81,6 @@ public class AccountServiceImplTest {
 
     @Test
     public void getAllAccountsOnCustomerTest() throws BusinessException{
-
         when(customerDao.findOne(anyLong())).thenReturn(Optional.of(Customer.getBuilder().build()));
         when(accountDao.findByCustomerId(anyLong())).thenReturn(createMockAccounts());
         List<Account> accountList = accountService.getAll(9008047193475L);
@@ -114,7 +103,7 @@ public class AccountServiceImplTest {
         DepositWithdrawalReqDTO depositReqDTO = new DepositWithdrawalReqDTO(9008047193475L, BigDecimal.valueOf(100));
         Account targetAcc = createMockAccount();
         when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(targetAcc));
-        doNothing().when(transactionDao).persist(isA(Transaction.class));
+
         BalanceDTO balanceDTO = accountService.balance(9008047193475L);
         assertEquals(targetAcc.getBalance(), balanceDTO.getAmount());
         accountService.deposit(depositReqDTO);
@@ -126,7 +115,6 @@ public class AccountServiceImplTest {
         DepositWithdrawalReqDTO withdrawalReqDTO = new DepositWithdrawalReqDTO(9008047193475L, BigDecimal.valueOf(100.50));
         Account sourceAcc = createMockAccountWithdraw();
         when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(sourceAcc));
-        doNothing().when(transactionDao).persist(isA(Transaction.class));
         BalanceDTO balanceDTO = accountService.balance(9008047193475L);
         assertEquals(sourceAcc.getBalance(), balanceDTO.getAmount());
         accountService.withdraw(withdrawalReqDTO);
@@ -146,10 +134,118 @@ public class AccountServiceImplTest {
     @Test
     public void withdrawalThrowsAccountNotFoundExceptionTest() throws BusinessException{
         DepositWithdrawalReqDTO withdrawalReqDTO = new DepositWithdrawalReqDTO(1111111111111L, BigDecimal.valueOf(5000));
-        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.empty());
         exceptionRule.expect(AccountNumberNotFoundException.class);
         exceptionRule.expectMessage(String.format("Account number %d cannot be found.", 1111111111111L));
         accountService.withdraw(withdrawalReqDTO);
+    }
+
+    @Test
+    public void successfullyTransferFundsTest() throws BusinessException {
+        TransferDTO transferDTO = new TransferDTO(1554292743856L, 1554292860710L, BigDecimal.valueOf(450));
+        Account sourceAccount = createMockSourceAccountTransfer();
+        Account targetAccount = createMockTargetAccountTransfer();
+        when(accountService.findAccountByAccNo(transferDTO.getSourceAccountNumber())).thenReturn(Optional.of(sourceAccount));
+        when(accountService.findAccountByAccNo(transferDTO.getTargetAccountNumber())).thenReturn(Optional.of(targetAccount));
+        BalanceDTO sourceBalanceBefore = accountService.balance(transferDTO.getSourceAccountNumber());
+        BalanceDTO targetBalanceBefore = accountService.balance(transferDTO.getTargetAccountNumber());
+        accountService.transfer(transferDTO);
+        BalanceDTO sourceBalanceAfter = accountService.balance(transferDTO.getSourceAccountNumber());
+        BalanceDTO targetBalanceAfter = accountService.balance(transferDTO.getTargetAccountNumber());
+        assertEquals(sourceBalanceAfter.getAmount(), sourceBalanceBefore.getAmount().subtract(transferDTO.getAmount()));
+        assertEquals(targetBalanceAfter.getAmount(), targetBalanceBefore.getAmount().add(transferDTO.getAmount()));
+        verify(transactionDao, times(1)).persist(any(Transaction.class));
+    }
+
+    @Test
+    public void failTransferOnSameAccountTransferException()throws BusinessException{
+        TransferDTO transferDTO = new TransferDTO(1554292743856L, 1554292743856L, BigDecimal.valueOf(450));
+        exceptionRule.expect(SameAccountTransferException.class);
+        exceptionRule.expectMessage(String.format("Source account (%s) and destination account (%s) are the same", transferDTO.getSourceAccountNumber(), transferDTO.getTargetAccountNumber()));
+        accountService.transfer(transferDTO);
+    }
+
+    @Test
+    public void failTransferOnSourceAccountNumberNotFoundException() throws BusinessException{
+        TransferDTO transferDTO = new TransferDTO(1554292743856L, 1554292860710L, BigDecimal.valueOf(450));
+        when(accountService.findAccountByAccNo(transferDTO.getSourceAccountNumber())).thenReturn(Optional.empty());
+        exceptionRule.expect(AccountNumberNotFoundException.class);
+        exceptionRule.expectMessage(String.format("Account number %d cannot be found.", transferDTO.getSourceAccountNumber()));
+        accountService.transfer(transferDTO);
+    }
+
+    @Test
+    public void failTransferOnSourceAccountInsufficientFundsException() throws BusinessException{
+        TransferDTO transferDTO = new TransferDTO(1554292743856L, 1554292860710L, BigDecimal.valueOf(100000));
+        Account sourceAccount = createMockSourceAccountTransfer();
+        when(accountService.findAccountByAccNo(transferDTO.getSourceAccountNumber())).thenReturn(Optional.of(sourceAccount));
+        exceptionRule.expect(InsufficientFundsException.class);
+        exceptionRule.expectMessage(String.format("Cannot withdraw %s%s. Insufficient funds in account %d", sourceAccount.getCurrency(), transferDTO.getAmount().setScale(2, RoundingMode.CEILING), transferDTO.getSourceAccountNumber()));
+        accountService.transfer(transferDTO);
+    }
+
+    @Test
+    public void successfullyCloseAccount() throws BusinessException {
+        Account targetAccount = createMockCloseAccount(BigDecimal.ZERO);
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(targetAccount));
+        accountService.close(targetAccount.getAccountNumber());
+        assertFalse(accountDao.accountExist(targetAccount.getAccountNumber()));
+    }
+
+    @Test
+    public void failCloseAccountOnCloseNoneEmptyAccountException() throws BusinessException {
+        Account targetAccount = createMockCloseAccount(BigDecimal.TEN);
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.of(targetAccount));
+        exceptionRule.expect(CloseNoneEmptyAccountException.class);
+        exceptionRule.expectMessage(String.format("Cannot close account [%d] with funds greater than zero amount", targetAccount.getAccountNumber()));
+        accountService.close(targetAccount.getAccountNumber());
+    }
+
+    @Test
+    public void failCloseAccountOnAccountNumberNotFoundException() throws BusinessException{
+        Account targetAccount = createMockCloseAccount(BigDecimal.TEN);
+        when(accountService.findAccountByAccNo(anyLong())).thenReturn(Optional.empty());
+        exceptionRule.expect(AccountNumberNotFoundException.class);
+        exceptionRule.expectMessage(String.format("Account number %d cannot be found.", targetAccount.getAccountNumber()));
+        accountService.close(targetAccount.getAccountNumber());
+    }
+    private Account createMockCloseAccount(BigDecimal amount){
+        Customer customer = Customer.getBuilder()
+                .withFirstName("Ngoni")
+                .withLastName("Chibamu")
+                .withNationalIdNumber(9008047193475L)
+                .build();
+        return Account.getBuilder()
+                .withBalance(amount)
+                .withCustomer(customer)
+                .withLastModified()
+                .build();
+    }
+
+    private Account createMockTargetAccountTransfer(){
+        Customer customer = Customer.getBuilder()
+                .withFirstName("Gabarinocheka")
+                .withLastName("ChabvondokaBanditi")
+                .withNationalIdNumber(1990061628530L)
+                .build();
+        return Account.getBuilder()
+                .withBalance(BigDecimal.valueOf(400))
+                .withCustomer(customer)
+                .withLastModified()
+                .withCurrency("EUR")
+                .build();
+    }
+    private Account createMockSourceAccountTransfer(){
+        Customer customer = Customer.getBuilder()
+                .withFirstName("Karigamombe")
+                .withLastName("Tambazvinonetsa")
+                .withNationalIdNumber(2019061629869L)
+                .build();
+        return Account.getBuilder()
+                .withBalance(BigDecimal.valueOf(1200))
+                .withCustomer(customer)
+                .withLastModified()
+                .withCurrency("EUR")
+                .build();
     }
 
     private Account createMockAccountWithdraw(){

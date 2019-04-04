@@ -61,8 +61,19 @@ public class AccountResource {
             @Digits(integer = NATIONAL_ID_NUMBER_LENGTH, fraction = 0, message = NATIONA_ID_NUMBER_ERR_MSG)
             long nationalIdNumber) throws BusinessException {
         List<Account> accounts = accountService.getAll(nationalIdNumber);
-        List<AccountInfoDTO> accountDtoList = this.mapToAccountDto(accounts);
+        List<AccountInfoDTO> accountDtoList = this.mapToAccountDTO(accounts);
         return Response.ok().entity(accountDtoList).build();
+    }
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/{accountNumber}/account")
+    public Response getOne(@PathParam("accountNumber") long accountNumber) {
+        AccountInfoDTO accountInfoDTO = null;
+        Optional<Account> account = accountService.findAccountByAccNo(accountNumber);
+        if(account.isPresent())
+            accountInfoDTO = mapToAccountDTO(account.get());
+        return Response.ok().entity(accountInfoDTO).type(MediaType.APPLICATION_JSON).build();
     }
 
     @PUT
@@ -111,21 +122,24 @@ public class AccountResource {
         return Response.status(OK).entity(balance).type(MediaType.APPLICATION_JSON).build();
     }
 
-    private List<AccountInfoDTO> mapToAccountDto(List<Account> accounts){
+    private List<AccountInfoDTO> mapToAccountDTO(List<Account> accounts){
        List<AccountInfoDTO> accountDtoList = new ArrayList<>();
         accounts.forEach(account -> {
-            AccountInfoDTO accountDto = new AccountInfoDTO(
-                    account.getAccountNumber(),
-                    account.getBalance(),
-                    account.getCurrency(),
-                    account.getCustomer().getNationalIdNumber(),
-                    account.getCustomer().getFirstName(),
-                    account.getCustomer().getLastName(),
-                    account.getCreatedAt().toString(),
-                    account.getLastModified().toString());
-            accountDtoList.add(accountDto);
+            accountDtoList.add(mapToAccountDTO(account));
         });
         return accountDtoList;
+    }
+
+    private AccountInfoDTO mapToAccountDTO(Account account){
+        return new AccountInfoDTO(
+                account.getAccountNumber(),
+                account.getBalance(),
+                account.getCurrency(),
+                account.getCustomer().getNationalIdNumber(),
+                account.getCustomer().getFirstName(),
+                account.getCustomer().getLastName(),
+                account.getCreatedAt().toString(),
+                account.getLastModified().toString());
     }
 
     public static Validator createValidator() {

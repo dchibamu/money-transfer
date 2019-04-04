@@ -3,6 +3,7 @@ package org.chibamuio.moneytransfer.dao.impl;
 import org.chibamuio.moneytransfer.dao.TransactionDao;
 import org.chibamuio.moneytransfer.domain.Transaction;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,5 +30,10 @@ public class TransactionDaoImpl implements TransactionDao<Transaction> {
     @Override
     public void delete(Long transactionId) {
         transactionMap.remove(transactionId);
+    }
+
+    @Override
+    public List<Transaction> findByAccountNumber(long accountNumber) {
+        return null;
     }
 }
