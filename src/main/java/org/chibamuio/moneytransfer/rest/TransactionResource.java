@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
-@Path("transfer")
+@Path("transactions")
 public class TransactionResource {
 
     @GET

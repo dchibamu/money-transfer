@@ -69,7 +69,7 @@ public class AccountResourceTest extends JerseyTest {
         CustomerDTO customerDto = CustomerDTO.newCustomerDto(9008016295194L, "DOMINIC", "CHIBAMU", "USD", BigDecimal.valueOf(200000));
         when(accountServiceMock.create(any(CustomerDTO.class))).thenReturn(createMockAccount());
         Entity<CustomerDTO> customerDtoEntity = Entity.entity(customerDto, MediaType.APPLICATION_JSON);
-        Response response = target("/money-transfer")
+        Response response = target("/accounts")
                 .request(MediaType.APPLICATION_JSON)
                 .post(customerDtoEntity);
         assertEquals(Response.Status.CREATED.getStatusCode(),  response.getStatus());
@@ -80,7 +80,7 @@ public class AccountResourceTest extends JerseyTest {
         CustomerDTO customerDto = CustomerDTO.newCustomerDto(9008016295194L, "DOMINIC", "CHIBAMU", "USD", BigDecimal.valueOf(200000));
         when(accountServiceMock.create(any(CustomerDTO.class))).thenReturn(Optional.empty());
         Entity<CustomerDTO> customerDtoEntity = Entity.entity(customerDto, MediaType.APPLICATION_JSON);
-        Response response = target("/money-transfer")
+        Response response = target("/accounts")
                 .request(MediaType.APPLICATION_JSON)
                 .post(customerDtoEntity);
         assertEquals(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(),  response.getStatus());
@@ -88,7 +88,7 @@ public class AccountResourceTest extends JerseyTest {
 
     @Test
     public void testGetAllAccounts() {
-        Response response = target("/money-transfer/9008016295194")
+        Response response = target("/accounts/9008016295194")
                 .request(MediaType.APPLICATION_JSON)
                 .get();
         assertEquals("Should return status 200", Response.Status.OK.getStatusCode(), response.getStatus());
@@ -97,7 +97,7 @@ public class AccountResourceTest extends JerseyTest {
     @Test
     public void testGetAllCustomerAccounts() throws CustomerNotFoundException {
         when(accountServiceMock.getAll(anyLong())).thenReturn(createMockAccounts());
-        Response response = target("/money-transfer/9008016295194")
+        Response response = target("/accounts/customer/9008016295194")
                 .request(MediaType.APPLICATION_JSON)
                 .get();
         final List<AccountInfoDTO> result = response.readEntity(new GenericType<List<AccountInfoDTO>>(){});
@@ -109,7 +109,7 @@ public class AccountResourceTest extends JerseyTest {
     public void testDeposit() {
         DepositWithdrawalReqDTO depositReqDto = new DepositWithdrawalReqDTO(1554060992324L, BigDecimal.valueOf(1200));
         Entity<DepositWithdrawalReqDTO> depositReqDtoEntity = Entity.entity(depositReqDto, MediaType.APPLICATION_JSON);
-        Response response = target("/money-transfer/deposit")
+        Response response = target("/accounts/deposit")
                 .request(MediaType.APPLICATION_JSON)
                 .put(depositReqDtoEntity);
         assertThat(response.getStatusInfo().getFamily(), is(Response.Status.Family.SUCCESSFUL));
@@ -119,7 +119,7 @@ public class AccountResourceTest extends JerseyTest {
     public void testWithdrawal(){
         DepositWithdrawalReqDTO withdrawalReqDto = new DepositWithdrawalReqDTO(1554060992324L,  BigDecimal.valueOf(750));
         Entity<DepositWithdrawalReqDTO> withdrawalReqDtoEntity = Entity.entity(withdrawalReqDto, MediaType.APPLICATION_JSON);
-        Response response = target("/money-transfer/withdraw")
+        Response response = target("/accounts/withdraw")
                 .request(MediaType.APPLICATION_JSON)
                 .put(withdrawalReqDtoEntity);
         assertThat(response.getStatusInfo().getFamily(), is(Response.Status.Family.SUCCESSFUL));
@@ -129,25 +129,25 @@ public class AccountResourceTest extends JerseyTest {
     public void testMoneyTransfer(){
         TransferDTO transferDto = new TransferDTO(1554060992324L, 2664060994335L, BigDecimal.valueOf(750));
         Entity<TransferDTO> transferDtoEntity = Entity.entity(transferDto, MediaType.APPLICATION_JSON);
-        Response response = target("/money-transfer/transfer")
+        Response response = target("/accounts/transfer")
                 .request(MediaType.APPLICATION_JSON)
                 .put(transferDtoEntity);
         assertThat(response.getStatusInfo().getFamily(), is(Response.Status.Family.SUCCESSFUL));
     }
+
     @Test
-    public void testWrongTransfer(){
-        TransferDTO transferDto = new TransferDTO(1554060992324L, 1554060992324L, BigDecimal.valueOf(750));
+    public void testInputConstraintsOnMoneyTransfer() {
+        TransferDTO transferDto = new TransferDTO(-10L, 2664060994335L, BigDecimal.valueOf(10));
         Entity<TransferDTO> transferDtoEntity = Entity.entity(transferDto, MediaType.APPLICATION_JSON);
-        Response response = target("/money-transfer/transfer")
+        Response response = target("/accounts/transfer")
                 .request(MediaType.APPLICATION_JSON)
                 .put(transferDtoEntity);
         assertThat(response.getStatusInfo().getFamily(), is(Response.Status.Family.CLIENT_ERROR));
-        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(),  response.getStatus());
     }
 
     @Test
     public void testBalance(){
-        Response response = target("/money-transfer/balance/1554060992324")
+        Response response = target("/accounts/balance/1554060992324")
                 .request(MediaType.APPLICATION_JSON)
                 .get();
         assertEquals(Response.Status.OK.getStatusCode(),  response.getStatus());
@@ -155,13 +155,11 @@ public class AccountResourceTest extends JerseyTest {
 
     @Test
     public void testClose(){
-        Response response = target("/money-transfer/1554060992324")
+        Response response = target("/accounts/1554060992324")
                 .request(MediaType.APPLICATION_JSON)
                 .delete();
         assertEquals(Response.Status.OK.getStatusCode(),  response.getStatus());
     }
-
-    
 
 
     private Optional<Account> createMockAccount(){

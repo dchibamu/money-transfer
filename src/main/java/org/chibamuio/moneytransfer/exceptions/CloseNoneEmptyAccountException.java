@@ -9,6 +9,6 @@ public class CloseNoneEmptyAccountException extends BusinessException {
 
     @Override
     public String getMessage() {
-        return String.format("Cannot close account [%d] with funds greater than zero amount", accountNumber);
+        return String.format("Cannot close account [%d] with funds greater than zero amount. Customer required to withdraw all funds before closing account", accountNumber);
     }
 }

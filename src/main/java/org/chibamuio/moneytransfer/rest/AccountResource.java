@@ -1,32 +1,36 @@
 package org.chibamuio.moneytransfer.rest;
 
 import org.chibamuio.moneytransfer.domain.Account;
-import org.chibamuio.moneytransfer.exceptions.*;
+import org.chibamuio.moneytransfer.exceptions.BusinessException;
+import org.chibamuio.moneytransfer.exceptions.SameAccountTransferException;
 import org.chibamuio.moneytransfer.rest.dto.*;
 import org.chibamuio.moneytransfer.services.AccountService;
+import org.chibamuio.moneytransfer.util.ValidationUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
-import javax.validation.*;
+import javax.validation.Valid;
 import javax.validation.constraints.Digits;
 import javax.ws.rs.*;
-import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.chibamuio.moneytransfer.util.AppConstants.NATIONAL_ID_NUMBER_LENGTH;
 import static org.chibamuio.moneytransfer.util.AppConstants.NATIONA_ID_NUMBER_ERR_MSG;
 
-@Path("money-transfer")
+@Path("accounts")
 @RequestScoped
 public class AccountResource {
 
     private AccountService accountService;
     private static final Logger LOG = LoggerFactory.getLogger(AccountResource.class);
+
     @Inject
     public AccountResource(AccountService accountService) {
         this.accountService = accountService;
@@ -34,9 +38,9 @@ public class AccountResource {
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response open(CustomerDTO customerDto) throws BusinessException{
+    public Response open(@Valid CustomerDTO customerDto) throws BusinessException{
 
-        validateRequest(customerDto);
+        ValidationUtility.validateRequest(customerDto);
         Optional<Account> account = accountService.create(customerDto);
         if(account.isPresent()) {
             return Response
@@ -55,7 +59,7 @@ public class AccountResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("/{nationalIdNumber}")
+    @Path("/customer/{nationalIdNumber}")
     public Response getAll(
             @PathParam("nationalIdNumber")
             @Digits(integer = NATIONAL_ID_NUMBER_LENGTH, fraction = 0, message = NATIONA_ID_NUMBER_ERR_MSG)
@@ -67,7 +71,7 @@ public class AccountResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("/{accountNumber}/account")
+    @Path("/{accountNumber}")
     public Response getOne(@PathParam("accountNumber") long accountNumber) {
         AccountInfoDTO accountInfoDTO = null;
         Optional<Account> account = accountService.findAccountByAccNo(accountNumber);
@@ -79,7 +83,8 @@ public class AccountResource {
     @PUT
     @Path("/deposit")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response deposit(DepositWithdrawalReqDTO depositReqDto) throws BusinessException{
+    public Response deposit(@Valid DepositWithdrawalReqDTO depositReqDto) throws BusinessException{
+        ValidationUtility.validateRequest(depositReqDto);
         accountService.deposit(depositReqDto);
         return Response.ok().build();
     }
@@ -87,7 +92,8 @@ public class AccountResource {
     @PUT
     @Path("/withdraw")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response withdrawal(DepositWithdrawalReqDTO withdrawalReqDto) throws BusinessException {
+    public Response withdrawal(@Valid DepositWithdrawalReqDTO withdrawalReqDto) throws BusinessException {
+        ValidationUtility.validateRequest(withdrawalReqDto);
         accountService.withdraw(withdrawalReqDto);
         return Response.ok().build();
     }
@@ -95,15 +101,10 @@ public class AccountResource {
     @PUT
     @Path("/transfer")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response transfer(TransferDTO transferDto) throws BusinessException {
-        if(transferDto.getSourceAccountNumber() == transferDto.getTargetAccountNumber())
-            return Response
-                    .status(Response.Status.BAD_REQUEST)
-                    .entity(String.format("Source account (%s) and destination account (%s) are the same", transferDto.getSourceAccountNumber(), transferDto.getTargetAccountNumber()))
-                    .type(MediaType.APPLICATION_JSON)
-                    .build();
+    public Response transfer(@Valid TransferDTO transferDto) throws BusinessException {
+        ValidationUtility.validateRequest(transferDto);
         accountService.transfer(transferDto);
-        return Response.ok().build();
+        return Response.status(Response.Status.OK).build();
     }
 
     @DELETE
@@ -141,23 +142,4 @@ public class AccountResource {
                 account.getCreatedAt().toString(),
                 account.getLastModified().toString());
     }
-
-    public static Validator createValidator() {
-        Configuration<?> config = Validation.byDefaultProvider().configure();
-        ValidatorFactory factory = config.buildValidatorFactory();
-        Validator validator = factory.getValidator();
-        factory.close();
-        return validator;
-    }
-
-    public static void validateRequest(BaseDTO<? extends BaseDTO> dto) throws BusinessException{
-        Map<String, String> errors = new HashMap<>();
-        Validator validator = createValidator();
-        Set<ConstraintViolation<BaseDTO>> violations = validator.validate(dto);
-        if(!violations.isEmpty()){
-            violations.stream().forEach( violation -> errors.put(violation.getPropertyPath().toString(), violation.getMessage()));
-            throw new InputValidationException(errors);
-        }
-    }
-
 }

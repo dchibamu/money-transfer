@@ -6,7 +6,7 @@ import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 import javax.ws.rs.Path;
 
-@Path("money-transfer")
+@Path("customers")
 @RequestScoped
 public class CustomerResource {
 
@@ -16,6 +16,4 @@ public class CustomerResource {
     public CustomerResource(CustomerService customerService) {
         this.customerService = customerService;
     }
-
-
 }

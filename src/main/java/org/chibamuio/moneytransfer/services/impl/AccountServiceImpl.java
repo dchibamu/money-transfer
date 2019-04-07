@@ -127,9 +127,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void transfer(TransferDTO transferDto) throws AccountNumberNotFoundException, InsufficientFundsException, SameAccountTransferException {
-        if(transferDto.getSourceAccountNumber() == transferDto.getTargetAccountNumber())
+        if(transferDto.getSourceAccountNumber() == transferDto.getTargetAccountNumber()) {
             throw new SameAccountTransferException(transferDto.getSourceAccountNumber(), transferDto.getTargetAccountNumber());
-
+        }
         Account sourceAccount = findAccountByAccNo(transferDto.getSourceAccountNumber()).orElseThrow(
                 () -> new AccountNumberNotFoundException(transferDto.getSourceAccountNumber())
         );
@@ -173,7 +173,6 @@ public class AccountServiceImpl implements AccountService {
                 LOG.error(e.getMessage(), e);
             }
         }
-
     }
 
     @Override
